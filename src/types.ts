@@ -1,8 +1,8 @@
 export enum Rating {
-	Again = 1,
-	Hard = 2,
-	Good = 3,
-	Easy = 4,
+	Again = 1, // "I forgot this"
+	Hard = 2, // "Difficult to remember"
+	Good = 3, // "Normal recall"
+	Easy = 4, // "Super easy"
 }
 
 export enum State {
@@ -19,17 +19,16 @@ export interface FSRSParameters {
 }
 
 export interface Card {
-	due: Date;
-	stability: number;
-	difficulty: number;
-	elapsedDays: number;
-	scheduledDays: number;
-	reps: number;
-	lapses: number;
-	state: State;
-	lastReview?: Date;
+	due: Date; // When to show this card next
+	stability: number; // How "sticky" the memory is
+	difficulty: number; // How hard this card is (1-10)
+	elapsedDays: number; // Days since last review
+	scheduledDays: number; // How long it was scheduled for
+	reps: number; // Total times reviewed
+	lapses: number; // Times you failed/forgot
+	state: State; // New/Learning/Review/Relearning
+	lastReview?: Date; // When you last saw it
 }
-
 export interface ReviewLog {
 	rating: Rating;
 	state: State;

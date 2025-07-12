@@ -14,8 +14,8 @@ export class FSRS {
 	constructor(parameters?: Partial<FSRSParameters>) {
 		// Default FSRS parameters optimized for general use
 		this.parameters = {
-			requestRetention: 0.9,
-			maximumInterval: 36500, // 100 years
+			requestRetention: 0.9, // Default 90%
+			maximumInterval: 3650, // 10 years
 			w: [
 				0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29,
 				2.61, 0.0, 0.0,
@@ -41,9 +41,6 @@ export class FSRS {
 		};
 	}
 
-	/**
-	 * Schedule a card for review
-	 */
 	schedule(card: Card, rating: Rating, now: Date = new Date()): SchedulingCards {
 		if (card.state === State.New) {
 			return this.scheduleNewCard(card, rating, now);
@@ -197,13 +194,14 @@ export class FSRS {
 		}
 	}
 
-	// FSRS Algorithm Core Functions
+	// ----------------------------- FSRS Algorithm Core Functions -----------------------------
 
 	private initStability(rating: Rating): number {
 		return Math.max(this.parameters.w[rating - 1], 0.1);
 	}
 
 	private initDifficulty(rating: Rating): number {
+		// Rotating
 		return Math.min(Math.max(this.parameters.w[4] - (rating - 3) * this.parameters.w[5], 1), 10);
 	}
 
