@@ -7,6 +7,7 @@ import {
 	SchedulingInfo,
 	SchedulingCards,
 } from "./types";
+import { calcElapsedDays } from "./utils/timeFuncs";
 
 export class FSRS {
 	private parameters: FSRSParameters;
@@ -70,9 +71,7 @@ export class FSRS {
 	}
 
 	private scheduleReviewCard(card: Card, rating: Rating, now: Date): SchedulingCards {
-		const elapsedDays = card.lastReview
-			? Math.max(0, Math.floor((now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)))
-			: 0;
+		const elapsedDays = calcElapsedDays(card.lastReview, now);
 
 		const newCard = { ...card };
 		newCard.elapsedDays = elapsedDays;
@@ -206,7 +205,10 @@ export class FSRS {
 	}
 
 	private nextDifficulty(difficulty: number, rating: Rating): number {
+		// difficulty = how hard the card is 1 - 10
+		// rating = 1-4 (Again, Hard, Good, Easy)
 		const nextD = difficulty - this.parameters.w[6] * (rating - 3);
+		// Prevents extremes on either scales low or high difficulty
 		return Math.min(Math.max(this.meanReversion(this.parameters.w[4], nextD), 1), 10);
 	}
 
@@ -220,8 +222,10 @@ export class FSRS {
 		const easyBonus = rating === Rating.Easy ? this.parameters.w[16] : 1;
 
 		if (rating === Rating.Again) {
+			const baseStabilityForForgottenCards = this.parameters.w[11];
+
 			return (
-				this.parameters.w[11] *
+				baseStabilityForForgottenCards *
 				Math.pow(difficulty, -this.parameters.w[12]) *
 				(Math.pow(stability + 1, this.parameters.w[13]) - 1) *
 				Math.exp(this.parameters.w[14] * (1 - this.retrievability(elapsedDays, stability)))

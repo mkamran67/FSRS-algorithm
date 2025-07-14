@@ -6,8 +6,8 @@ export enum Rating {
 }
 
 export enum State {
-	New = 0,
-	Learning = 1,
+	New = 0, // card is new
+	Learning = 1, //
 	Review = 2,
 	Relearning = 3,
 }
