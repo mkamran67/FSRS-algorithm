@@ -29,15 +29,17 @@ export interface Card {
 	state: State; // New/Learning/Review/Relearning
 	lastReview?: Date; // When you last saw it
 }
+
+// ReivewLog is for history for a specific card
 export interface ReviewLog {
-	rating: Rating;
-	state: State;
 	due: Date;
 	stability: number;
 	difficulty: number;
 	elapsedDays: number;
-	lastElapsedDays: number;
 	scheduledDays: number;
+	state: State;
+	rating: Rating;
+	lastElapsedDays: number;
 	review: Date;
 }
 

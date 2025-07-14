@@ -60,14 +60,41 @@ export class FSRS {
 		newCard.reps = 1;
 		newCard.lastReview = new Date(now);
 
-		const shortTerm = rating === Rating.Again;
-		newCard.state = shortTerm ? State.Learning : State.Review;
+		newCard.state = rating === Rating.Again ? State.Learning : State.Review;
 
-		const interval = shortTerm ? 1 : Math.max(1, Math.round(initStability));
+		const interval = rating === Rating.Again ? 1 : Math.max(1, Math.round(initStability));
 		newCard.scheduledDays = interval;
 		newCard.due = this.addDays(now, interval);
 
 		return this.buildSchedulingCards(newCard, now);
+	}
+
+	private scheduleUsedCard(card: Card, rating: Rating, now: Date) {
+		const newCard = { ...card };
+
+		const elapsedDays = card.lastReview
+			? Math.max(0, Math.floor((now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)))
+			: 0;
+
+		newCard.elapsedDays = elapsedDays;
+		newCard.reps += 1;
+
+		if (rating === Rating.Again) {
+			newCard.lapses += 1;
+			newCard.state = State.Relearning;
+		} else {
+			newCard.state = State.Review;
+		}
+
+		newCard.difficulty = this.nextDifficulty(card.difficulty, rating);
+		newCard.stability = this.nextStability(card.difficulty, card.stability, elapsedDays, rating);
+
+		const interval = this.nextInterval(newCard.stability);
+		newCard.scheduledDays = interval;
+		newCard.due = this.addDays(now, interval);
+
+		newCard.lastReview = new Date(now);
+		return newCard;
 	}
 
 	private scheduleReviewCard(card: Card, rating: Rating, now: Date): SchedulingCards {
