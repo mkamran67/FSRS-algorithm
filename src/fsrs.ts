@@ -42,89 +42,8 @@ export class FSRS {
 		};
 	}
 
-	schedule(card: Card, rating: Rating, now: Date = new Date()): SchedulingCards {
-		if (card.state === State.New) {
-			return this.scheduleNewCard(card, rating, now);
-		} else {
-			return this.scheduleReviewCard(card, rating, now);
-		}
-	}
-
-	private scheduleNewCard(card: Card, rating: Rating, now: Date): SchedulingCards {
-		const newCard = { ...card };
-		const initDifficulty = this.initDifficulty(rating);
-		const initStability = this.initStability(rating);
-
-		newCard.difficulty = initDifficulty;
-		newCard.stability = initStability;
-		newCard.reps = 1;
-		newCard.lastReview = new Date(now);
-
-		newCard.state = rating === Rating.Again ? State.Learning : State.Review;
-
-		const interval = rating === Rating.Again ? 1 : Math.max(1, Math.round(initStability));
-		newCard.scheduledDays = interval;
-		newCard.due = this.addDays(now, interval);
-
-		return this.buildSchedulingCards(newCard, now);
-	}
-
-	private scheduleUsedCard(card: Card, rating: Rating, now: Date) {
-		const newCard = { ...card };
-
-		const elapsedDays = card.lastReview
-			? Math.max(0, Math.floor((now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)))
-			: 0;
-
-		newCard.elapsedDays = elapsedDays;
-		newCard.reps += 1;
-
-		if (rating === Rating.Again) {
-			newCard.lapses += 1;
-			newCard.state = State.Relearning;
-		} else {
-			newCard.state = State.Review;
-		}
-
-		newCard.difficulty = this.nextDifficulty(card.difficulty, rating);
-		newCard.stability = this.nextStability(card.difficulty, card.stability, elapsedDays, rating);
-
-		const interval = this.nextInterval(newCard.stability);
-		newCard.scheduledDays = interval;
-		newCard.due = this.addDays(now, interval);
-
-		newCard.lastReview = new Date(now);
-		return newCard;
-	}
-
-	private scheduleReviewCard(card: Card, rating: Rating, now: Date): SchedulingCards {
-		const elapsedDays = calcElapsedDays(card.lastReview, now);
-
-		const newCard = { ...card };
-		newCard.elapsedDays = elapsedDays;
-		newCard.lastReview = new Date(now);
-		newCard.reps += 1;
-
-		if (rating === Rating.Again) {
-			newCard.lapses += 1;
-			newCard.state = State.Relearning;
-		} else {
-			newCard.state = State.Review;
-		}
-
-		newCard.difficulty = this.nextDifficulty(newCard.difficulty, rating);
-		newCard.stability = this.nextStability(
-			newCard.difficulty,
-			newCard.stability,
-			elapsedDays,
-			rating
-		);
-
-		const interval = this.nextInterval(newCard.stability);
-		newCard.scheduledDays = interval;
-		newCard.due = this.addDays(now, interval);
-
-		return this.buildSchedulingCards(newCard, now);
+	schedule(card: Card, now: Date = new Date()): SchedulingCards {
+		return this.buildSchedulingCards(card, now);
 	}
 
 	private buildSchedulingCards(card: Card, now: Date): SchedulingCards {
@@ -160,12 +79,7 @@ export class FSRS {
 			newCard.scheduledDays = interval;
 			newCard.due = this.addDays(now, interval);
 		} else {
-			const elapsedDays = card.lastReview
-				? Math.max(
-						0,
-						Math.floor((now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24))
-				  )
-				: 0;
+			const elapsedDays = card.lastReview ? calcElapsedDays(card.lastReview, now) : 0;
 
 			newCard.elapsedDays = elapsedDays;
 			newCard.reps += 1;
@@ -190,9 +104,7 @@ export class FSRS {
 	}
 
 	private buildReviewLog(card: Card, scheduledCard: Card, rating: Rating, now: Date): ReviewLog {
-		const elapsedDays = card.lastReview
-			? Math.max(0, Math.floor((now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)))
-			: 0;
+		const elapsedDays = card.lastReview ? calcElapsedDays(card.lastReview, now) : 0;
 
 		return {
 			rating,
@@ -301,29 +213,18 @@ export class FSRS {
 		return result;
 	}
 
-	/**
-	 * Get the retrievability of a card at a given time
-	 */
 	getRetrievability(card: Card, now: Date = new Date()): number {
-		if (card.state === State.New) return 0;
+		if (card.state === State.New || !card.lastReview) return 1;
 
-		const elapsedDays = card.lastReview
-			? Math.max(0, Math.floor((now.getTime() - card.lastReview.getTime()) / (1000 * 60 * 60 * 24)))
-			: 0;
+		const elapsedDays = calcElapsedDays(card.lastReview, now);
 
-		return Math.exp((Math.log(0.9) * elapsedDays) / card.stability);
+		return this.retrievability(elapsedDays, card.stability);
 	}
 
-	/**
-	 * Update parameters
-	 */
 	updateParameters(newParameters: Partial<FSRSParameters>): void {
 		this.parameters = { ...this.parameters, ...newParameters };
 	}
 
-	/**
-	 * Get current parameters
-	 */
 	getParameters(): FSRSParameters {
 		return { ...this.parameters };
 	}
