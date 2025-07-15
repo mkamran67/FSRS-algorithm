@@ -43,6 +43,11 @@ export class FSRS {
 	}
 
 	schedule(card: Card, now: Date = new Date()): SchedulingCards {
+		if (!card) throw new Error("card cannot be null or undefined");
+
+		if (card.lastReview && now < card.lastReview)
+			throw new Error("Current time cannot be before the last review");
+
 		return this.buildSchedulingCards(card, now);
 	}
 

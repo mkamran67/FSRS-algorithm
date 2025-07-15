@@ -54,3 +54,13 @@ export interface SchedulingCards {
 	good: SchedulingInfo;
 	easy: SchedulingInfo;
 }
+
+// TODO
+export interface FSRSWeights {
+	initialStabilityAgain: number;
+	initialStabilityHard: number;
+	initialStabilityGood: number;
+	initialStabilityEasy: number;
+	initialDifficulty: number;
+	difficultyWeight: number;
+}
