@@ -1,20 +1,26 @@
-# FSRS Algorithm TypeScript Implementation
+# FSRS - Free Spaced Repetition Scheduler
 
-A TypeScript implementation of the Free Spaced Repetition Scheduler (FSRS) algorithm - a modern, evidence-based alternative to traditional spaced repetition algorithms like SM-2.
+A TypeScript/JavaScript implementation of the FSRS (Free Spaced Repetition Scheduler) algorithm for optimizing memory retention through spaced repetition learning.
+
+## What is FSRS?
+
+FSRS is a modern spaced repetition algorithm that schedules review sessions for flashcards or learning materials based on memory research. It dynamically adjusts review intervals based on your performance, helping you learn more efficiently by showing difficult cards more frequently and easy cards less often.
 
 ## Features
 
-- 🎯 **Optimized Algorithm**: Based on the latest research in memory and learning
-- 🔧 **Customizable Parameters**: Tune the algorithm to your specific needs
-- 📊 **Detailed Scheduling**: Get comprehensive scheduling information for each rating
-- 🎮 **Easy Integration**: Simple API for integrating into your applications
-- 🧪 **Well Tested**: Comprehensive test suite included
-- 📱 **Universal**: Works in Node.js and browsers
+- 🧠 **Scientific Algorithm**: Based on memory research and forgetting curves
+- ⚙️ **Configurable Parameters**: Customize the algorithm for your learning style
+- 📊 **Difficulty Tracking**: Automatically adjusts card difficulty based on performance
+- 🔄 **State Management**: Handles different learning states (New, Learning, Review, Relearning)
+- 📈 **Retrievability Calculation**: Track memory strength over time
+- 🎯 **Retention Optimization**: Optimize for your target retention rate
 
 ## Installation
 
 ```bash
 npm install fsrs-algorithm
+# or
+yarn add fsrs-algorithm
 ```
 
 ## Quick Start
@@ -22,231 +28,321 @@ npm install fsrs-algorithm
 ```typescript
 import { FSRS, Rating, State } from "fsrs-algorithm";
 
-// Create FSRS instance with default parameters
+// Initialize FSRS with default parameters
 const fsrs = new FSRS();
 
 // Create a new card
-let card = fsrs.createEmptyCard();
+const card = fsrs.createEmptyCard();
 
-// Schedule the card after user rates it as "Good"
-const scheduling = fsrs.schedule(card, Rating.Good);
+// Schedule the card based on your rating
+const now = new Date();
+const schedulingOptions = fsrs.schedule(card, now);
 
-// Get the updated card for the chosen rating
-card = scheduling.good.card;
+// Rate your performance (1=Again, 2=Hard, 3=Good, 4=Easy)
+const yourRating = Rating.Good;
+const scheduledCard = schedulingOptions.good.card;
+const reviewLog = schedulingOptions.good.reviewLog;
 
-console.log(`Next review: ${card.due}`);
-console.log(`Difficulty: ${card.difficulty}`);
-console.log(`Stability: ${card.stability}`);
+console.log(`Next review: ${scheduledCard.due}`);
+console.log(`Interval: ${scheduledCard.scheduledDays} days`);
 ```
 
 ## API Reference
 
-### FSRS Class
-
-#### Constructor
+### Constructor
 
 ```typescript
-new FSRS(parameters?: Partial<FSRSParameters>)
+const fsrs = new FSRS(parameters?: Partial<FSRSParameters>);
 ```
 
-#### Methods
+**Parameters:**
 
-- `createEmptyCard(now?: Date): Card` - Create a new card
-- `schedule(card: Card, rating: Rating, now?: Date): SchedulingCards` - Schedule a card
-- `getRetrievability(card: Card, now?: Date): number` - Get card's retrievability
-- `updateParameters(parameters: Partial<FSRSParameters>): void` - Update algorithm parameters
-- `getParameters(): FSRSParameters` - Get current parameters
+- `requestRetention` (default: 0.9): Target retention rate (0.0-1.0)
+- `maximumInterval` (default: 3650): Maximum review interval in days
+- `w`: Array of 19 algorithm weights (uses optimized defaults)
 
-### Types
+### Methods
 
-#### Rating
+#### `createEmptyCard(now?: Date): Card`
+
+Creates a new flashcard ready for learning.
 
 ```typescript
-enum Rating {
-	Again = 1, // Failed recall
-	Hard = 2, // Difficult recall
-	Good = 3, // Successful recall
-	Easy = 4, // Easy recall
-}
+const card = fsrs.createEmptyCard();
 ```
 
-#### State
+#### `schedule(card: Card, now?: Date): SchedulingCards`
+
+Returns scheduling options for all possible ratings.
 
 ```typescript
-enum State {
-	New = 0, // New card
-	Learning = 1, // Card being learned
-	Review = 2, // Card in review
-	Relearning = 3, // Card being relearned after failure
-}
+const options = fsrs.schedule(card, new Date());
+
+// Access different rating outcomes
+const againOption = options.again; // Rating.Again (1)
+const hardOption = options.hard; // Rating.Hard (2)
+const goodOption = options.good; // Rating.Good (3)
+const easyOption = options.easy; // Rating.Easy (4)
 ```
 
-#### Card
+#### `getRetrievability(card: Card, now?: Date): number`
+
+Calculate the current probability of successfully recalling the card (0.0-1.0).
+
+```typescript
+const retrievability = fsrs.getRetrievability(card);
+console.log(`${Math.round(retrievability * 100)}% chance of recall`);
+```
+
+#### `updateParameters(newParameters: Partial<FSRSParameters>): void`
+
+Update algorithm parameters.
+
+```typescript
+fsrs.updateParameters({
+	requestRetention: 0.85, // Target 85% retention
+	maximumInterval: 1825, // Max 5 years
+});
+```
+
+## Data Types
+
+### Card
 
 ```typescript
 interface Card {
-	due: Date; // When the card is due for review
-	stability: number; // How stable the memory is
-	difficulty: number; // How difficult the card is (1-10)
+	due: Date; // When to review next
+	stability: number; // Memory strength
+	difficulty: number; // Card difficulty (1-10)
 	elapsedDays: number; // Days since last review
-	scheduledDays: number; // Days the card was scheduled for
-	reps: number; // Total repetitions
-	lapses: number; // Number of times failed
-	state: State; // Current state
+	scheduledDays: number; // Scheduled interval
+	reps: number; // Total reviews
+	lapses: number; // Number of times forgotten
+	state: State; // Current learning state
 	lastReview?: Date; // Last review date
 }
 ```
 
-## Advanced Usage
+### Rating
+
+```typescript
+enum Rating {
+	Again = 1, // Forgot the card
+	Hard = 2, // Remembered with difficulty
+	Good = 3, // Remembered easily
+	Easy = 4, // Too easy
+}
+```
+
+### State
+
+```typescript
+enum State {
+	New = 0, // Never studied
+	Learning = 1, // First time learning
+	Review = 2, // Regular review
+	Relearning = 3, // Relearning after forgetting
+}
+```
+
+## Usage Examples
+
+### Pseudocode flow
+
+```
+
+// 1. You'd create an empty card for new cards -- structure as below
+
+interface Card {
+	due: Date; // When to show this card next
+	stability: number; // How "sticky" the memory is
+	difficulty: number; // How hard this card is (1-10)
+	elapsedDays: number; // Days since last review
+	scheduledDays: number; // How long it was scheduled for
+	reps: number; // Total times reviewed
+	lapses: number; // Times you failed/forgot
+	state: State; // New/Learning/Review/Relearning
+	lastReview?: Date; // When you last saw it
+}
+
+cosnt today = new Date();
+const newCard = fsrs.createEmptyCard(today); // new empty card
+
+// 2. get hypothetical outcomes for empty card -- structure is below
+export interface SchedulingInfo {
+	card: Card;
+	reviewLog: ReviewLog;
+}
+
+export interface SchedulingCards {
+	again: SchedulingInfo;
+	hard: SchedulingInfo;
+	good: SchedulingInfo;
+	easy: SchedulingInfo;
+}
+
+const cardPossibilities = fsrs.schedule(newCard, today); // this would return SchedulingCards
+
+// 3. Show user possibilities
+// 4. On user selection save new selection in database/cache for next iteration.
+// 	ReviewLog is for historical data on specific card to view overall history.
+// 5. On next "study" session you would pull these cards
+// 	and get hypothetical outcomes per card show them and repeat the steps.
+
+
+
+```
+
+### Basic Learning Session
+
+```typescript
+import { FSRS, Rating } from "fsrs-algorithm";
+
+const fsrs = new FSRS();
+let card = fsrs.createEmptyCard();
+
+// Study session
+function reviewCard(rating: Rating) {
+	const options = fsrs.schedule(card, new Date());
+
+	switch (rating) {
+		case Rating.Again:
+			card = options.again.card;
+			break;
+		case Rating.Hard:
+			card = options.hard.card;
+			break;
+		case Rating.Good:
+			card = options.good.card;
+			break;
+		case Rating.Easy:
+			card = options.easy.card;
+			break;
+	}
+
+	console.log(`Next review: ${card.due.toLocaleDateString()}`);
+	console.log(`Difficulty: ${card.difficulty.toFixed(2)}`);
+	console.log(`Stability: ${card.stability.toFixed(2)} days`);
+}
+
+// User rates the card as "Good"
+reviewCard(Rating.Good);
+```
 
 ### Custom Parameters
 
 ```typescript
+// Optimize for different learning scenarios
 const fsrs = new FSRS({
-	requestRetention: 0.85, // Target retention rate (85%)
-	maximumInterval: 36500, // Maximum interval in days
-	w: [
-		/* 19 custom parameters */
-	],
+	requestRetention: 0.95, // Higher retention for important material
+	maximumInterval: 365, // Review at least annually
 });
 ```
 
-### Handling Reviews
+### Tracking Multiple Cards
 
 ```typescript
-// Get all possible scheduling outcomes
-const scheduling = fsrs.schedule(card, rating);
+interface StudyCard extends Card {
+	id: string;
+	front: string;
+	back: string;
+}
 
-// Choose based on user's performance
-if (userRating === Rating.Good) {
-	card = scheduling.good.card;
+class StudySession {
+	private fsrs = new FSRS();
+	private cards: StudyCard[] = [];
 
-	// Log the review for analytics
-	const reviewLog = scheduling.good.reviewLog;
-	console.log("Review logged:", reviewLog);
+	addCard(front: string, back: string): StudyCard {
+		const card: StudyCard = {
+			...this.fsrs.createEmptyCard(),
+			id: crypto.randomUUID(),
+			front,
+			back,
+		};
+		this.cards.push(card);
+		return card;
+	}
+
+	getDueCards(now = new Date()): StudyCard[] {
+		return this.cards.filter((card) => card.due <= now);
+	}
+
+	reviewCard(cardId: string, rating: Rating): void {
+		const cardIndex = this.cards.findIndex((c) => c.id === cardId);
+		if (cardIndex === -1) return;
+
+		const options = this.fsrs.schedule(this.cards[cardIndex]);
+		const ratingKey = this.getRatingKey(rating);
+		this.cards[cardIndex] = {
+			...this.cards[cardIndex],
+			...options[ratingKey].card,
+		};
+	}
+
+	private getRatingKey(rating: Rating): keyof SchedulingCards {
+		const map = {
+			[Rating.Again]: "again",
+			[Rating.Hard]: "hard",
+			[Rating.Good]: "good",
+			[Rating.Easy]: "easy",
+		};
+		return map[rating];
+	}
 }
 ```
 
-### Retrievability Tracking
+## Configuration
+
+### Algorithm Parameters
+
+The FSRS algorithm uses 19 weight parameters (`w[0]` to `w[18]`) that control different aspects of the scheduling:
+
+- `w[0-3]`: Initial stability for each rating
+- `w[4-5]`: Initial difficulty calculation
+- `w[6-7]`: Difficulty adjustment and mean reversion
+- `w[8-10]`: Stability calculation for successful reviews
+- `w[11-14]`: Stability calculation for failed reviews (lapses)
+- `w[15-16]`: Hard/Easy rating penalties and bonuses
+
+The default weights are optimized for general use, but you can customize them:
 
 ```typescript
-// Check how likely the user is to remember
-const retrievability = fsrs.getRetrievability(card);
-console.log(`Memory strength: ${(retrievability * 100).toFixed(1)}%`);
+const customWeights = [
+	0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61,
+	0.0, 0.0,
+];
+
+const fsrs = new FSRS({ w: customWeights });
 ```
 
-# FSRS Algorithm Explained Simply
+### Retention Rate
 
-Think of FSRS as a **smart study scheduler** that learns how your brain works with each flashcard.
+Adjust the target retention rate based on your needs:
 
-## 🧠 **The Basic Idea**
+```typescript
+// Conservative (more frequent reviews)
+const conservative = new FSRS({ requestRetention: 0.95 });
 
-Imagine you're learning vocabulary words. Some words stick in your memory longer than others, and some words are just naturally harder for you. FSRS tracks both of these factors to predict the perfect time to review each card.
-
-## 🔑 **Key Concepts**
-
-### 1. **Stability** - How sticky is this memory?
-
-- **High stability** = The memory sticks well (like your own name)
-- **Low stability** = The memory fades quickly (like a phone number you just heard)
-- FSRS calculates how long you can wait before you'll likely forget
-
-### 2. **Difficulty** - How hard is this card for YOU?
-
-- **Easy cards** = Low difficulty (1-3 out of 10)
-- **Hard cards** = High difficulty (7-10 out of 10)
-- This is personal - what's easy for you might be hard for someone else
-
-### 3. **Retrievability** - How likely are you to remember right now?
-
-- **90%** = Very likely to remember
-- **50%** = Coin flip
-- **10%** = Probably forgotten
-
-## ⚙️ **How It Works**
-
-### Step 1: You review a card and rate your performance
-
-- **Again** (Failed) - "I forgot this completely"
-- **Hard** - "I remembered but it was difficult"
-- **Good** - "I remembered it normally"
-- **Easy** - "I remembered it effortlessly"
-
-### Step 2: FSRS updates the card's profile
-
-```
-If you said "Easy":
-→ Difficulty goes DOWN (it's easier for you)
-→ Stability goes UP (memory is stronger)
-→ Next review is LONGER away
-
-If you said "Again":
-→ Difficulty goes UP (it's harder for you)
-→ Stability goes DOWN (memory is weaker)
-→ Next review is VERY SOON
+// Aggressive (less frequent reviews, more forgetting)
+const aggressive = new FSRS({ requestRetention: 0.8 });
 ```
 
-### Step 3: FSRS schedules your next review
+## Contributing
 
-The algorithm asks: _"When will this person's memory strength drop to about 90%?"_
-
-That's when you see the card again.
-
-## 📊 **Real Example**
-
-Let's say you're learning the Spanish word "gato" (cat):
-
-**First time seeing it:**
-
-- You rate it "Good"
-- FSRS sets: Difficulty = 5, Stability = 3 days
-- Next review: 3 days from now
-
-**Second review (3 days later):**
-
-- You rate it "Easy"
-- FSRS updates: Difficulty = 4, Stability = 8 days
-- Next review: 8 days from now
-
-**Third review (8 days later):**
-
-- You rate it "Again" (you forgot!)
-- FSRS updates: Difficulty = 6, Stability = 2 days
-- Next review: 2 days from now (back to frequent practice)
-
-## 🆚 **Why FSRS is Better Than Older Systems**
-
-**Old algorithm (SM-2):**
-
-- "If you got it right, wait 2x longer next time"
-- Same formula for everyone
-- Doesn't consider individual differences
-
-**FSRS:**
-
-- "Let me learn YOUR memory patterns"
-- Adapts to your personal strengths/weaknesses
-- Uses modern research about how memory actually works
-
-## 🎯 **The Goal**
-
-FSRS tries to show you each card at the **perfect moment**:
-
-- Not too early (waste of time)
-- Not too late (you've already forgotten)
-- Right when your memory is starting to fade
-
-This maximizes learning while minimizing study time.
-
-## 💡 **In Practice**
-
-When you use an app with FSRS:
-
-1. Study normally, rating each card honestly
-2. FSRS silently builds a "memory profile" for each card
-3. It gets better at predicting your memory over time
-4. You spend less time reviewing and remember more
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT
+MIT License - see LICENSE file for details.
+
+## References
+
+- [FSRS Algorithm Paper](https://www.nature.com/articles/s41598-024-57552-7)
+- [FSRS GitHub Repository](https://github.com/open-spaced-repetition/fsrs4anki)
+- [Spaced Repetition Research](https://www.gwern.net/Spaced-repetition)
+
+---
+
+##### PS.
+
+This is an Alpha release, I've got some cleanup to do and perhaps allow different ways to incorporate this various application structures.
