@@ -64,3 +64,20 @@ export interface FSRSWeights {
 	initialDifficulty: number;
 	difficultyWeight: number;
 }
+
+export interface RawCardData {
+	id?: string;
+	userId?: string;
+	cardId?: string;
+	due: string | Date;
+	stability: number | string;
+	difficulty: number | string;
+	elapsedDays: number | string;
+	scheduledDays?: number | string;
+	reps: number | string;
+	lapses: number | string;
+	state: string;
+	lastReview?: string | Date | null;
+	createdAt?: string | Date;
+	updatedAt?: string | Date;
+}

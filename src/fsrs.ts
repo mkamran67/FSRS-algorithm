@@ -6,7 +6,9 @@ import {
 	ReviewLog,
 	SchedulingInfo,
 	SchedulingCards,
+	RawCardData,
 } from "./types";
+import { CardValidator } from "./utils/cardValidator";
 import { calcElapsedDays } from "./utils/timeFuncs";
 
 export class FSRS {
@@ -49,6 +51,41 @@ export class FSRS {
 			throw new Error("Current time cannot be before the last review");
 
 		return this.buildSchedulingCards(card, now);
+	}
+
+	/**
+	 * Schedule a card from raw data
+	 * Combines validation and scheduling in one operation
+	 * @param rawData - The raw card data
+	 * @param now - Current time (optional)
+	 * @returns Scheduling cards for all ratings
+	 * @throws Error if validation fails
+	 */
+	scheduleRawCard(rawData: RawCardData, now: Date = new Date()): SchedulingCards {
+		const card = this.convertRawCard(rawData);
+		return this.schedule(card, now);
+	}
+
+	/**
+	 * Converts and validates raw card data from database/API
+	 * @param rawData - The raw card data
+	 * @returns A validated Card object
+	 * @throws Error if validation fails
+	 */
+	convertRawCard(rawData: RawCardData): Card {
+		return CardValidator.validateAndConvert(rawData);
+	}
+
+	/**
+	 * Batch convert and validate multiple raw cards
+	 * @param rawDataArray - Array of raw card data
+	 * @returns Object with valid cards and errors
+	 */
+	convertRawCardBatch(rawDataArray: RawCardData[]): {
+		valid: Card[];
+		errors: Array<{ index: number; error: string; data: RawCardData }>;
+	} {
+		return CardValidator.validateAndConvertBatch(rawDataArray);
 	}
 
 	private buildSchedulingCards(card: Card, now: Date): SchedulingCards {

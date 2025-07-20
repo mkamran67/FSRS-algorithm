@@ -187,7 +187,28 @@ const cardPossibilities = fsrs.schedule(newCard, today); // this would return Sc
 // 4. On user selection save new selection in database/cache for next iteration.
 // 	ReviewLog is for historical data on specific card to view overall history.
 // 5. On next "study" session you would pull these cards
-// 	and get hypothetical outcomes per card show them and repeat the steps.
+// 	and get hypothetical outcomes per card show them and repeat the steps, as below.
+
+// Note the different method, this takes an object like below, converts/validates and returns possible outcomes like the 'schedule' method.
+
+const reviewCard: RawCardData = {
+					id: "cmdauwe2l0001vexwplv74vjf",
+					userId: "5NANdkHyQ1p0riBtDeHPOfdRwdv7y1DM",
+					cardId: "cmd4fgv3f0001veq4loisxygg",
+					due: "2025-07-25T22:52:36.294Z", // These are strings not Date objects
+					stability: 5.8,
+					difficulty: 3.99,
+					elapsedDays: 0,
+					reps: 1,
+					lapses: 0,
+					state: "REVIEW",
+					lastReview: "2025-07-19T22:52:36.294Z", // These are strings not Date objects
+					createdAt: "2025-07-19T23:05:41.949Z",
+					updatedAt: "2025-07-19T23:05:41.949Z",
+				};
+
+const hypotheticalOutcomes = fsrs.scheduleRawCard(rawData, now);
+
 
 
 
@@ -227,6 +248,33 @@ function reviewCard(rating: Rating) {
 
 // User rates the card as "Good"
 reviewCard(Rating.Good);
+```
+
+### Using Card Objects from your Database
+
+```
+// Note the different method, this takes an object like below, converts/validates and returns possible outcomes like the 'schedule' method.
+
+const reviewCard: RawCardData = {
+					id: "cmdauwe2l0001vexwplv74vjf",
+					userId: "5NANdkHyQ1p0riBtDeHPOfdRwdv7y1DM",
+					cardId: "cmd4fgv3f0001veq4loisxygg",
+					due: "2025-07-25T22:52:36.294Z", // These are strings not Date objects
+					stability: 5.8,
+					difficulty: 3.99,
+					elapsedDays: 0,
+					reps: 1,
+					lapses: 0,
+					state: "REVIEW",
+					lastReview: "2025-07-19T22:52:36.294Z", // These are strings not Date objects
+					createdAt: "2025-07-19T23:05:41.949Z",
+					updatedAt: "2025-07-19T23:05:41.949Z",
+				};
+
+const hypotheticalOutcomes = fsrs.scheduleRawCard(rawData, now);
+
+// Now you can render these for the user again.
+
 ```
 
 ### Custom Parameters
