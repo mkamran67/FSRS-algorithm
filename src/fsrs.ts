@@ -21,7 +21,7 @@ export class FSRS {
 			maximumInterval: 3650, // 10 years
 			w: [
 				0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29,
-				2.61, 0.0, 0.0,
+				2.61, -1.0, 0.0,
 			],
 			...parameters,
 		};
@@ -227,14 +227,16 @@ export class FSRS {
 	}
 
 	private nextInterval(stability: number): number {
+		const decay = this.parameters.w[17];
 		const interval =
-			(stability / this.factor()) *
-			(Math.pow(this.parameters.requestRetention, 1 / this.decay()) - 1);
+			(stability / this.factor()) * (Math.pow(this.parameters.requestRetention, 1 / decay) - 1);
 		return Math.min(Math.max(Math.round(interval), 1), this.parameters.maximumInterval);
 	}
 
 	private retrievability(elapsedDays: number, stability: number): number {
-		return Math.pow(1 + (this.factor() * elapsedDays) / stability, this.decay());
+		const decay = this.parameters.w[17];
+
+		return Math.pow(1 + (this.factor() * elapsedDays) / stability, decay);
 	}
 
 	private meanReversion(init: number, current: number): number {
@@ -242,11 +244,9 @@ export class FSRS {
 	}
 
 	private factor(): number {
-		return Math.pow(0.9, 1 / this.decay()) - 1;
-	}
-
-	private decay(): number {
-		return -0.5;
+		// Use the decay parameter from the 'w' array
+		const decay = this.parameters.w[17];
+		return Math.pow(0.9, 1 / decay) - 1;
 	}
 
 	private addDays(date: Date, days: number): Date {

@@ -192,25 +192,22 @@ const cardPossibilities = fsrs.schedule(newCard, today); // this would return Sc
 // Note the different method, this takes an object like below, converts/validates and returns possible outcomes like the 'schedule' method.
 
 const reviewCard: RawCardData = {
-					id: "cmdauwe2l0001vexwplv74vjf",
-					userId: "5NANdkHyQ1p0riBtDeHPOfdRwdv7y1DM",
-					cardId: "cmd4fgv3f0001veq4loisxygg",
-					due: "2025-07-25T22:52:36.294Z", // These are strings not Date objects
-					stability: 5.8,
-					difficulty: 3.99,
-					elapsedDays: 0,
-					reps: 1,
-					lapses: 0,
-					state: "REVIEW",
-					lastReview: "2025-07-19T22:52:36.294Z", // These are strings not Date objects
-					createdAt: "2025-07-19T23:05:41.949Z",
-					updatedAt: "2025-07-19T23:05:41.949Z",
-				};
+	id: "cmdauwe2l0001vexwplv74vjf",
+	userId: "5NANdkHyQ1p0riBtDeHPOfdRwdv7y1DM",
+	cardId: "cmd4fgv3f0001veq4loisxygg",
+	due: "2025-07-25T22:52:36.294Z", // These are strings not Date objects
+	stability: 5.8,
+	difficulty: 3.99,
+	elapsedDays: 0,
+	reps: 1,
+	lapses: 0,
+	state: "REVIEW",
+	lastReview: "2025-07-19T22:52:36.294Z", // These are strings not Date objects
+	createdAt: "2025-07-19T23:05:41.949Z",
+	updatedAt: "2025-07-19T23:05:41.949Z",
+};
 
 const hypotheticalOutcomes = fsrs.scheduleRawCard(rawData, now);
-
-
-
 
 ```
 
@@ -256,20 +253,20 @@ reviewCard(Rating.Good);
 // Note the different method, this takes an object like below, converts/validates and returns possible outcomes like the 'schedule' method.
 
 const reviewCard: RawCardData = {
-					id: "cmdauwe2l0001vexwplv74vjf",
-					userId: "5NANdkHyQ1p0riBtDeHPOfdRwdv7y1DM",
-					cardId: "cmd4fgv3f0001veq4loisxygg",
-					due: "2025-07-25T22:52:36.294Z", // These are strings not Date objects
-					stability: 5.8,
-					difficulty: 3.99,
-					elapsedDays: 0,
-					reps: 1,
-					lapses: 0,
-					state: "REVIEW",
-					lastReview: "2025-07-19T22:52:36.294Z", // These are strings not Date objects
-					createdAt: "2025-07-19T23:05:41.949Z",
-					updatedAt: "2025-07-19T23:05:41.949Z",
-				};
+	id: "cmdauwe2l0001vexwplv74vjf",
+	userId: "5NANdkHyQ1p0riBtDeHPOfdRwdv7y1DM",
+	cardId: "cmd4fgv3f0001veq4loisxygg",
+	due: "2025-07-25T22:52:36.294Z", // These are strings not Date objects
+	stability: 5.8,
+	difficulty: 3.99,
+	elapsedDays: 0,
+	reps: 1,
+	lapses: 0,
+	state: "REVIEW",
+	lastReview: "2025-07-19T22:52:36.294Z", // These are strings not Date objects
+	createdAt: "2025-07-19T23:05:41.949Z",
+	updatedAt: "2025-07-19T23:05:41.949Z",
+};
 
 const hypotheticalOutcomes = fsrs.scheduleRawCard(rawData, now);
 
