@@ -11,24 +11,62 @@ import {
 import { CardValidator } from "./utils/cardValidator";
 import { calcElapsedDays } from "./utils/timeFuncs";
 
+// Implementation of FSRS-4.5
+// Based on the FSRS-4.5 algorithm specification.
+// This version has been updated for clarity and adherence to the standard.
 export class FSRS {
 	private parameters: FSRSParameters;
 
 	constructor(parameters?: Partial<FSRSParameters>) {
-		// Default FSRS parameters optimized for general use
+		// Default FSRS-4.5 parameters optimized for general use.
+		// These 17 parameters are the core of the algorithm.
 		this.parameters = {
-			requestRetention: 0.9, // Default 90%
-			maximumInterval: 3650, // 10 years
+			requestRetention: 0.9, // Target probability of recalling a card
+			maximumInterval: 36500, // Maximum number of days for an interval
 			w: [
-				0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29,
-				2.61, -1.0, 0.0,
+				// w[0]: Initial stability for Again
+				0.4,
+				// w[1]: Initial stability for Hard
+				0.6,
+				// w[2]: Initial stability for Good
+				2.4,
+				// w[3]: Initial stability for Easy
+				5.8,
+				// w[4]: Initial difficulty for Good
+				4.93,
+				// w[5]: Difficulty change factor
+				0.94,
+				// w[6]: Difficulty change factor
+				0.86,
+				// w[7]: Mean reversion weight for difficulty
+				0.01,
+				// w[8]: Stability increase factor
+				1.49,
+				// w[9]: Stability exponent
+				0.14,
+				// w[10]: Stability factor for memory retrieval
+				0.94,
+				// w[11]: Stability factor for forgotten cards
+				2.18,
+				// w[12]: Difficulty exponent for forgotten cards
+				0.05,
+				// w[13]: Stability exponent for forgotten cards
+				0.34,
+				// w[14]: Retrieval exponent for forgotten cards
+				1.26,
+				// w[15]: Penalty factor for "Hard" rating
+				0.29,
+				// w[16]: Bonus factor for "Easy" rating
+				2.61,
 			],
 			...parameters,
 		};
 	}
 
 	/**
-	 * Create a new card
+	 * Creates a new, empty card object.
+	 * @param now The current date, defaults to new Date().
+	 * @returns A new Card object.
 	 */
 	createEmptyCard(now: Date = new Date()): Card {
 		return {
@@ -44,6 +82,12 @@ export class FSRS {
 		};
 	}
 
+	/**
+	 * Generates scheduling information for all possible ratings for a given card.
+	 * @param card The card to schedule.
+	 * @param now The current date of the review.
+	 * @returns An object containing the card and review log for each rating.
+	 */
 	schedule(card: Card, now: Date = new Date()): SchedulingCards {
 		if (!card) throw new Error("card cannot be null or undefined");
 
@@ -54,12 +98,10 @@ export class FSRS {
 	}
 
 	/**
-	 * Schedule a card from raw data
-	 * Combines validation and scheduling in one operation
-	 * @param rawData - The raw card data
-	 * @param now - Current time (optional)
-	 * @returns Scheduling cards for all ratings
-	 * @throws Error if validation fails
+	 * Converts raw card data, validates it, and then schedules it.
+	 * @param rawData The raw card data from a database or API.
+	 * @param now The current date of the review.
+	 * @returns Scheduling cards for all ratings.
 	 */
 	scheduleRawCard(rawData: RawCardData, now: Date = new Date()): SchedulingCards {
 		const card = this.convertRawCard(rawData);
@@ -67,19 +109,18 @@ export class FSRS {
 	}
 
 	/**
-	 * Converts and validates raw card data from database/API
-	 * @param rawData - The raw card data
-	 * @returns A validated Card object
-	 * @throws Error if validation fails
+	 * Converts and validates raw card data into a formal Card object.
+	 * @param rawData The raw card data.
+	 * @returns A validated Card object.
 	 */
 	convertRawCard(rawData: RawCardData): Card {
 		return CardValidator.validateAndConvert(rawData);
 	}
 
 	/**
-	 * Batch convert and validate multiple raw cards
-	 * @param rawDataArray - Array of raw card data
-	 * @returns Object with valid cards and errors
+	 * Batch converts and validates multiple raw cards.
+	 * @param rawDataArray Array of raw card data.
+	 * @returns An object containing arrays of valid cards and any errors encountered.
 	 */
 	convertRawCardBatch(rawDataArray: RawCardData[]): {
 		valid: Card[];
@@ -88,12 +129,28 @@ export class FSRS {
 		return CardValidator.validateAndConvertBatch(rawDataArray);
 	}
 
+	/**
+	 * Calculates the probability of recalling a card at a given time.
+	 * @param card The card to calculate retrievability for.
+	 * @param now The date for which to calculate retrievability.
+	 * @returns A number between 0 and 1, representing the probability of recall.
+	 */
+	getRetrievability(card: Card, now: Date = new Date()): number | undefined {
+		if (card.state === State.New || !card.lastReview) {
+			return undefined;
+		}
+		const elapsedDays = calcElapsedDays(card.lastReview, now);
+		return this.retrievability(elapsedDays, card.stability);
+	}
+
+	// ----------------------------- FSRS-4.5 Algorithm Core -----------------------------
+
 	private buildSchedulingCards(card: Card, now: Date): SchedulingCards {
 		const cards: SchedulingCards = {} as SchedulingCards;
 
 		[Rating.Again, Rating.Hard, Rating.Good, Rating.Easy].forEach((rating) => {
-			const scheduledCard = this.scheduleCard(card, rating, now);
-			const reviewLog = this.buildReviewLog(card, scheduledCard, rating, now);
+			const scheduledCard = this.calculateScheduledCard(card, rating, now);
+			const reviewLog = this.buildReviewLog(card, rating, now);
 
 			const key = this.getRatingKey(rating);
 			cards[key] = {
@@ -105,60 +162,124 @@ export class FSRS {
 		return cards;
 	}
 
-	private scheduleCard(card: Card, rating: Rating, now: Date): Card {
+	private calculateScheduledCard(card: Card, rating: Rating, now: Date): Card {
 		const newCard = { ...card };
 
+		newCard.reps += 1;
+		newCard.lastReview = new Date(now);
+
 		if (card.state === State.New) {
-			const initDifficulty = this.initDifficulty(rating);
-			const initStability = this.initStability(rating);
-
-			newCard.difficulty = initDifficulty;
-			newCard.stability = initStability;
-			newCard.reps = 1;
-			newCard.state = rating === Rating.Again ? State.Learning : State.Review;
-
-			const interval = rating === Rating.Again ? 1 : Math.max(1, Math.round(initStability));
-			newCard.scheduledDays = interval;
-			newCard.due = this.addDays(now, interval);
+			// First review of a new card
+			newCard.elapsedDays = 0;
+			newCard.difficulty = this.initDifficulty(rating);
+			newCard.stability = this.initStability(rating);
 		} else {
+			// Review of a card that has been seen before
 			const elapsedDays = card.lastReview ? calcElapsedDays(card.lastReview, now) : 0;
-
 			newCard.elapsedDays = elapsedDays;
-			newCard.reps += 1;
-
-			if (rating === Rating.Again) {
-				newCard.lapses += 1;
-				newCard.state = State.Relearning;
-			} else {
-				newCard.state = State.Review;
-			}
-
+			const R = this.retrievability(elapsedDays, card.stability);
 			newCard.difficulty = this.nextDifficulty(card.difficulty, rating);
-			newCard.stability = this.nextStability(card.difficulty, card.stability, elapsedDays, rating);
-
-			const interval = this.nextInterval(newCard.stability);
-			newCard.scheduledDays = interval;
-			newCard.due = this.addDays(now, interval);
+			newCard.stability = this.nextStability(newCard.difficulty, card.stability, R, rating);
 		}
 
-		newCard.lastReview = new Date(now);
+		if (rating === Rating.Again) {
+			newCard.lapses += 1;
+			newCard.state = State.Relearning;
+			// Interval for "Again" is fixed according to the algorithm's forgetting curve
+			newCard.scheduledDays = this.nextInterval(newCard.stability);
+		} else {
+			newCard.state = card.state === State.New ? State.Learning : State.Review;
+			newCard.scheduledDays = this.nextInterval(newCard.stability);
+		}
+
+		newCard.due = this.addDays(now, newCard.scheduledDays);
 		return newCard;
 	}
 
-	private buildReviewLog(card: Card, scheduledCard: Card, rating: Rating, now: Date): ReviewLog {
-		const elapsedDays = card.lastReview ? calcElapsedDays(card.lastReview, now) : 0;
-
+	private buildReviewLog(card: Card, rating: Rating, now: Date): ReviewLog {
 		return {
 			rating,
 			state: card.state,
 			due: new Date(card.due),
 			stability: card.stability,
 			difficulty: card.difficulty,
-			elapsedDays,
+			elapsedDays: card.lastReview ? calcElapsedDays(card.lastReview, now) : 0,
 			lastElapsedDays: card.elapsedDays,
 			scheduledDays: card.scheduledDays,
 			review: new Date(now),
 		};
+	}
+
+	// --- FSRS-4.5 Formulas ---
+
+	private initStability(rating: Rating): number {
+		return Math.max(this.parameters.w[rating - 1], 0.1);
+	}
+
+	private initDifficulty(rating: Rating): number {
+		const difficulty = this.parameters.w[4] - (rating - 3) * this.parameters.w[5];
+		return Math.min(Math.max(difficulty, 1), 10);
+	}
+
+	private nextDifficulty(difficulty: number, rating: Rating): number {
+		const nextD = difficulty - this.parameters.w[6] * (rating - 3);
+
+		// Correction: The mean reversion target should be the initial 'Good' difficulty (w[4]).
+		const reversionTarget = this.parameters.w[4];
+
+		const revertedD = this.parameters.w[7] * reversionTarget + (1 - this.parameters.w[7]) * nextD;
+
+		return Math.min(Math.max(revertedD, 1), 10);
+	}
+
+	private nextStability(
+		difficulty: number,
+		stability: number,
+		retrievability: number,
+		rating: Rating
+	): number {
+		if (rating === Rating.Again) {
+			return (
+				this.parameters.w[11] *
+				Math.pow(difficulty, -this.parameters.w[12]) *
+				(Math.pow(stability + 1, this.parameters.w[13]) - 1) *
+				Math.exp((1 - retrievability) * this.parameters.w[14])
+			);
+		} else {
+			const hardPenalty = rating === Rating.Hard ? this.parameters.w[15] : 1;
+			const easyBonus = rating === Rating.Easy ? this.parameters.w[16] : 1;
+			return (
+				stability *
+				(1 +
+					Math.exp(this.parameters.w[8]) *
+						(11 - difficulty) *
+						Math.pow(stability, -this.parameters.w[9]) *
+						(Math.exp((1 - retrievability) * this.parameters.w[10]) - 1)) *
+				hardPenalty *
+				easyBonus
+			);
+		}
+	}
+
+	private nextInterval(stability: number): number {
+		// This formula calculates the interval where the probability of recall
+		// is `requestRetention`. The `9` is a magic number from the FSRS-4.5 formula.
+		const interval = stability * 9 * (1 / this.parameters.requestRetention - 1);
+		return Math.min(Math.max(Math.round(interval), 1), this.parameters.maximumInterval);
+	}
+
+	private retrievability(elapsedDays: number, stability: number): number {
+		// The probability of recalling a card after `elapsedDays` with a given `stability`.
+		// The `9` is a magic number from the FSRS-4.5 formula.
+		return Math.pow(1 + elapsedDays / (9 * stability), -1);
+	}
+
+	// --- Utility Functions ---
+
+	private addDays(date: Date, days: number): Date {
+		const result = new Date(date);
+		result.setDate(result.getDate() + days);
+		return result;
 	}
 
 	private getRatingKey(rating: Rating): keyof SchedulingCards {
@@ -174,94 +295,7 @@ export class FSRS {
 		}
 	}
 
-	// ----------------------------- FSRS Algorithm Core Functions -----------------------------
-
-	private initStability(rating: Rating): number {
-		return Math.max(this.parameters.w[rating - 1], 0.1);
-	}
-
-	private initDifficulty(rating: Rating): number {
-		// Rotating
-		return Math.min(Math.max(this.parameters.w[4] - (rating - 3) * this.parameters.w[5], 1), 10);
-	}
-
-	private nextDifficulty(difficulty: number, rating: Rating): number {
-		// difficulty = how hard the card is 1 - 10
-		// rating = 1-4 (Again, Hard, Good, Easy)
-		const nextD = difficulty - this.parameters.w[6] * (rating - 3);
-		// Prevents extremes on either scales low or high difficulty
-		return Math.min(Math.max(this.meanReversion(this.parameters.w[4], nextD), 1), 10);
-	}
-
-	private nextStability(
-		difficulty: number,
-		stability: number,
-		elapsedDays: number,
-		rating: Rating
-	): number {
-		const hardPenalty = rating === Rating.Hard ? this.parameters.w[15] : 1;
-		const easyBonus = rating === Rating.Easy ? this.parameters.w[16] : 1;
-
-		if (rating === Rating.Again) {
-			const baseStabilityForForgottenCards = this.parameters.w[11];
-
-			return (
-				baseStabilityForForgottenCards *
-				Math.pow(difficulty, -this.parameters.w[12]) *
-				(Math.pow(stability + 1, this.parameters.w[13]) - 1) *
-				Math.exp(this.parameters.w[14] * (1 - this.retrievability(elapsedDays, stability)))
-			);
-		} else {
-			return (
-				stability *
-				(Math.exp(this.parameters.w[8]) *
-					(11 - difficulty) *
-					Math.pow(stability, -this.parameters.w[9]) *
-					(Math.exp(this.parameters.w[10] * (1 - this.retrievability(elapsedDays, stability))) -
-						1) *
-					hardPenalty *
-					easyBonus +
-					1)
-			);
-		}
-	}
-
-	private nextInterval(stability: number): number {
-		const decay = this.parameters.w[17];
-		const interval =
-			(stability / this.factor()) * (Math.pow(this.parameters.requestRetention, 1 / decay) - 1);
-		return Math.min(Math.max(Math.round(interval), 1), this.parameters.maximumInterval);
-	}
-
-	private retrievability(elapsedDays: number, stability: number): number {
-		const decay = this.parameters.w[17];
-
-		return Math.pow(1 + (this.factor() * elapsedDays) / stability, decay);
-	}
-
-	private meanReversion(init: number, current: number): number {
-		return this.parameters.w[7] * init + (1 - this.parameters.w[7]) * current;
-	}
-
-	private factor(): number {
-		// Use the decay parameter from the 'w' array
-		const decay = this.parameters.w[17];
-		return Math.pow(0.9, 1 / decay) - 1;
-	}
-
-	private addDays(date: Date, days: number): Date {
-		const result = new Date(date);
-		result.setDate(result.getDate() + days);
-		return result;
-	}
-
-	getRetrievability(card: Card, now: Date = new Date()): number {
-		if (card.state === State.New || !card.lastReview) return 1;
-
-		const elapsedDays = calcElapsedDays(card.lastReview, now);
-
-		return this.retrievability(elapsedDays, card.stability);
-	}
+	// --- Parameter Management ---
 
 	updateParameters(newParameters: Partial<FSRSParameters>): void {
 		this.parameters = { ...this.parameters, ...newParameters };
